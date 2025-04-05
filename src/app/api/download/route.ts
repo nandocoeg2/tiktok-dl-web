@@ -66,8 +66,13 @@ export async function POST(request: NextRequest) {
       const { db } = await connectToDatabase();
       dbCollection = db.collection(SUBMITTED_URLS_COLLECTION);
       const docToInsert = {
-        /* ... */
-      }; // Seperti sebelumnya
+        url: tiktokUrl,
+        submittedAt: new Date(),
+        status: 'pending',
+        lastUpdatedAt: new Date(),
+        error: null,
+        details: null,
+      };
       dbCollection
         .insertOne(docToInsert)
         .then((result) =>
