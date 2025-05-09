@@ -2,23 +2,84 @@
 
 import { useState, FormEvent } from 'react';
 
+interface VideoInfo {
+  directVideoUrl: string;
+  uniqueId: string;
+  nickname: string;
+  videoId: string;
+  videoDesc: string;
+  coverUrl: string;
+  dynamicCover?: string;
+  duration: number;
+  diggCount: number;
+  shareCount: number;
+  commentCount: number;
+  playCount: number;
+}
+
 export default function Home() {
   const [url, setUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isFetching, setIsFetching] = useState<boolean>(false);
+  const [isDownloading, setIsDownloading] = useState<boolean>(false);
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleFetch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setIsFetching(true);
     setIsLoading(true);
     setStatus('');
     setError('');
+    setVideoInfo(null);
 
     if (!url || !url.includes('tiktok.com')) {
       setError('Masukkan URL TikTok yang valid.');
       setIsLoading(false);
+      setIsFetching(false);
       return;
     }
+
+    try {
+      setStatus('Mengambil informasi video...');
+
+      const response = await fetch('/api/fetch', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(
+          errorData?.error ||
+            `Gagal mengambil informasi: Status ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      setVideoInfo(data.videoInfo);
+      setStatus('Informasi video berhasil diambil');
+    } catch (err) {
+      console.error('Error fetching video info:', err);
+      setError('Gagal mengambil informasi video.');
+      setStatus('');
+    } finally {
+      setIsLoading(false);
+      setIsFetching(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!videoInfo) return;
+
+    setIsDownloading(true);
+    setIsLoading(true);
+    setStatus('Memulai download...');
+    setError('');
 
     try {
       const response = await fetch('/api/download', {
@@ -36,8 +97,6 @@ export default function Home() {
             `Gagal memulai download: Status ${response.status}`
         );
       }
-
-      setStatus('Memulai download...');
 
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
@@ -58,14 +117,23 @@ export default function Home() {
       window.URL.revokeObjectURL(downloadUrl);
 
       setStatus('Download selesai!');
-      setUrl('');
     } catch (err) {
-      console.error('Error submitting URL:', err);
-      setError('Terjadi kesalahan.');
+      console.error('Error downloading video:', err);
+      setError('Terjadi kesalahan saat download.');
       setStatus('');
     } finally {
       setIsLoading(false);
+      setIsDownloading(false);
     }
+  };
+
+  const formatNumber = (num: number): string => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1) + 'M';
+    } else if (num >= 1000) {
+      return (num / 1000).toFixed(1) + 'K';
+    }
+    return num.toString();
   };
 
   return (
@@ -76,7 +144,7 @@ export default function Home() {
         </h1>
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={handleFetch}
           className='w-full max-w-lg bg-white p-8 rounded-lg shadow-md'
         >
           <div className='mb-6'>
@@ -103,7 +171,7 @@ export default function Home() {
             disabled={isLoading}
             className='w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:opacity-50 disabled:cursor-not-allowed'
           >
-            {isLoading ? (
+            {isFetching ? (
               <svg
                 className='inline mr-3 w-5 h-5 text-white animate-spin'
                 viewBox='0 0 24 24'
@@ -114,12 +182,81 @@ export default function Home() {
                 />
               </svg>
             ) : (
-              'Download Video'
+              'Ambil Informasi Video'
             )}
           </button>
 
           {status && <p className='mt-4 text-sm text-green-600'>{status}</p>}
           {error && <p className='mt-4 text-sm text-red-600'>{error}</p>}
+
+          {videoInfo && (
+            <div className='mt-6 border-t pt-6'>
+              <div className='flex flex-col items-center'>
+                {videoInfo.coverUrl && (
+                  <div className='mb-4 relative w-full max-w-[240px] rounded-lg overflow-hidden'>
+                    <img
+                      src={videoInfo.coverUrl}
+                      alt='Video thumbnail'
+                      className='w-full h-auto'
+                    />
+                    <div className='absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded'>
+                      {Math.floor(videoInfo.duration)}s
+                    </div>
+                  </div>
+                )}
+
+                <h3 className='text-lg font-semibold mb-2'>
+                  @{videoInfo.uniqueId}{' '}
+                  {videoInfo.nickname && `(${videoInfo.nickname})`}
+                </h3>
+
+                <p className='text-sm text-gray-600 mb-4 line-clamp-2'>
+                  {videoInfo.videoDesc || 'No description'}
+                </p>
+
+                <div className='flex justify-center space-x-4 mb-4 text-xs text-gray-500'>
+                  <div>
+                    <span className='font-bold'>
+                      {formatNumber(videoInfo.playCount || 0)}
+                    </span>{' '}
+                    plays
+                  </div>
+                  <div>
+                    <span className='font-bold'>
+                      {formatNumber(videoInfo.diggCount || 0)}
+                    </span>{' '}
+                    likes
+                  </div>
+                  <div>
+                    <span className='font-bold'>
+                      {formatNumber(videoInfo.commentCount || 0)}
+                    </span>{' '}
+                    comments
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleDownload}
+                  disabled={isLoading}
+                  className='w-full text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:opacity-50 disabled:cursor-not-allowed'
+                >
+                  {isDownloading ? (
+                    <svg
+                      className='inline mr-3 w-5 h-5 text-white animate-spin'
+                      viewBox='0 0 24 24'
+                    >
+                      <path
+                        fill='currentColor'
+                        d='M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2zm1.5 17h-3v-2h3zm0-4h-3v-6h3z'
+                      />
+                    </svg>
+                  ) : (
+                    'Download Video'
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </form>
         <footer className='mt-8 text-gray-500 text-sm'>Dibuat dengan ❤️</footer>
       </main>
