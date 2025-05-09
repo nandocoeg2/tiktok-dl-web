@@ -25,6 +25,7 @@ export default function Home() {
   const [status, setStatus] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<number>(0);
 
   const handleFetch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -80,6 +81,7 @@ export default function Home() {
     setIsLoading(true);
     setStatus('Memulai download...');
     setError('');
+    setDownloadProgress(0);
 
     try {
       const response = await fetch('/api/download', {
@@ -98,7 +100,50 @@ export default function Home() {
         );
       }
 
-      const blob = await response.blob();
+      // Get total size from Content-Length header
+      const contentLength = response.headers.get('content-length');
+      const totalSize = contentLength ? parseInt(contentLength, 10) : 0;
+
+      // Create a reader from the response body stream
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('Response body stream is not available');
+      }
+
+      // Create an array to hold the chunks
+      const chunks: Uint8Array[] = [];
+      let receivedSize = 0;
+
+      // Read the stream
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) {
+          break;
+        }
+
+        // Add the chunk to our array
+        chunks.push(value);
+        receivedSize += value.length;
+
+        // Calculate and update progress
+        if (totalSize > 0) {
+          const progress = Math.round((receivedSize / totalSize) * 100);
+          setDownloadProgress(progress);
+          setStatus(`Downloading... ${progress}%`);
+        }
+      }
+
+      // Combine all chunks into a single Uint8Array
+      const allChunks = new Uint8Array(receivedSize);
+      let position = 0;
+      for (const chunk of chunks) {
+        allChunks.set(chunk, position);
+        position += chunk.length;
+      }
+
+      // Convert to blob and download
+      const blob = new Blob([allChunks]);
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       const disposition = response.headers.get('content-disposition');
@@ -117,6 +162,7 @@ export default function Home() {
       window.URL.revokeObjectURL(downloadUrl);
 
       setStatus('Download selesai!');
+      setDownloadProgress(100);
     } catch (err) {
       console.error('Error downloading video:', err);
       setError('Terjadi kesalahan saat download.');
@@ -235,21 +281,42 @@ export default function Home() {
                   </div>
                 </div>
 
+                {isDownloading &&
+                downloadProgress > 0 &&
+                downloadProgress < 100 ? (
+                  <div className='w-full mb-4'>
+                    <div className='w-full bg-gray-200 rounded-full h-2.5 mb-2'>
+                      <div
+                        className='bg-green-600 h-2.5 rounded-full transition-all duration-300 ease-in-out'
+                        style={{ width: `${downloadProgress}%` }}
+                      ></div>
+                    </div>
+                    <p className='text-xs text-gray-500'>
+                      {downloadProgress}% Downloaded
+                    </p>
+                  </div>
+                ) : null}
+
                 <button
                   onClick={handleDownload}
                   disabled={isLoading}
                   className='w-full text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:outline-none focus:ring-green-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:opacity-50 disabled:cursor-not-allowed'
                 >
                   {isDownloading ? (
-                    <svg
-                      className='inline mr-3 w-5 h-5 text-white animate-spin'
-                      viewBox='0 0 24 24'
-                    >
-                      <path
-                        fill='currentColor'
-                        d='M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2zm1.5 17h-3v-2h3zm0-4h-3v-6h3z'
-                      />
-                    </svg>
+                    <>
+                      <svg
+                        className='inline mr-3 w-5 h-5 text-white animate-spin'
+                        viewBox='0 0 24 24'
+                      >
+                        <path
+                          fill='currentColor'
+                          d='M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2zm1.5 17h-3v-2h3zm0-4h-3v-6h3z'
+                        />
+                      </svg>
+                      {downloadProgress > 0 && downloadProgress < 100
+                        ? `Downloading... ${downloadProgress}%`
+                        : 'Preparing Download...'}
+                    </>
                   ) : (
                     'Download Video'
                   )}
