@@ -2,19 +2,29 @@
 
 import { useState, FormEvent } from 'react';
 
-interface VideoInfo {
-  directVideoUrl: string;
-  uniqueId: string;
-  nickname: string;
-  videoId: string;
-  videoDesc: string;
-  coverUrl: string;
-  dynamicCover?: string;
-  duration: number;
+interface VideoStats {
   diggCount: number;
   shareCount: number;
   commentCount: number;
   playCount: number;
+  collectCount: string;
+}
+
+interface VideoDetails {
+  id: string;
+  createTime: string;
+}
+
+interface VideoInfo {
+  directVideoUrl: string;
+  author: string;
+  nickname: string;
+  video: VideoDetails;
+  description: string;
+  stats: VideoStats;
+  coverUrl: string;
+  dynamicCover?: string;
+  duration: number;
 }
 
 export default function Home() {
@@ -252,32 +262,50 @@ export default function Home() {
                 )}
 
                 <h3 className='text-lg font-semibold mb-2'>
-                  @{videoInfo.uniqueId}{' '}
+                  @{videoInfo.author}{' '}
                   {videoInfo.nickname && `(${videoInfo.nickname})`}
                 </h3>
 
                 <p className='text-sm text-gray-600 mb-4 line-clamp-2'>
-                  {videoInfo.videoDesc || 'No description'}
+                  {videoInfo.description || 'No description'}
                 </p>
+
+                <div className='text-xs text-gray-500 mb-3'>
+                  <span className='font-medium'>Video ID:</span>{' '}
+                  {videoInfo.video.id}
+                  <br />
+                  <span className='font-medium'>Created:</span>{' '}
+                  {new Date(
+                    parseInt(videoInfo.video.createTime) * 1000
+                  ).toLocaleDateString()}
+                </div>
 
                 <div className='flex justify-center space-x-4 mb-4 text-xs text-gray-500'>
                   <div>
                     <span className='font-bold'>
-                      {formatNumber(videoInfo.playCount || 0)}
+                      {formatNumber(videoInfo.stats.playCount || 0)}
                     </span>{' '}
                     plays
                   </div>
                   <div>
                     <span className='font-bold'>
-                      {formatNumber(videoInfo.diggCount || 0)}
+                      {formatNumber(videoInfo.stats.diggCount || 0)}
                     </span>{' '}
                     likes
                   </div>
                   <div>
                     <span className='font-bold'>
-                      {formatNumber(videoInfo.commentCount || 0)}
+                      {formatNumber(videoInfo.stats.commentCount || 0)}
                     </span>{' '}
                     comments
+                  </div>
+                  <div>
+                    <span className='font-bold'>
+                      {formatNumber(
+                        parseInt(videoInfo.stats.collectCount) || 0
+                      )}
+                    </span>{' '}
+                    saves
                   </div>
                 </div>
 

@@ -126,12 +126,46 @@ export async function POST(request: NextRequest) {
     }
     const apiData = await apiResponse.json();
 
-    // Ekstrak data (Logika tidak berubah)
+    // Ekstrak data dengan format lengkap
     const cookie = apiData?.data?.cookie;
     const directVideoUrl = apiData?.data?.content?.video?.playAddr;
     const uniqueId = apiData?.data?.content?.author?.uniqueId;
+    const nickname = apiData?.data?.content?.author?.nickname;
     const videoId = apiData?.data?.content?.id;
     const videoDesc = apiData?.data?.content?.desc;
+
+    // Get creation time from API or use current time
+    const createTime =
+      apiData?.data?.content?.createTime ||
+      Math.floor(Date.now() / 1000).toString();
+
+    // Extract collectCount if available
+    const collectCount = apiData?.data?.content?.stats?.collectCount || '0';
+
+    // Create full video information object
+    const videoInfo = {
+      directVideoUrl: directVideoUrl,
+      author: uniqueId,
+      nickname: nickname,
+      video: {
+        id: videoId,
+        createTime: createTime,
+      },
+      description: videoDesc,
+      stats: {
+        diggCount: apiData?.data?.content?.stats?.diggCount || 0,
+        shareCount: apiData?.data?.content?.stats?.shareCount || 0,
+        commentCount: apiData?.data?.content?.stats?.commentCount || 0,
+        playCount: apiData?.data?.content?.stats?.playCount || 0,
+        collectCount: collectCount,
+      },
+      coverUrl: apiData?.data?.content?.video?.cover,
+      dynamicCover: apiData?.data?.content?.video?.dynamicCover,
+      duration: apiData?.data?.content?.video?.duration,
+      originalUrl: tiktokUrl,
+      createdAt: new Date(),
+      lastUpdatedAt: new Date(),
+    };
 
     if (!directVideoUrl) {
       console.error(
@@ -149,10 +183,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Store complete video information in a separate collection
+    try {
+      const { db } = await connectToDatabase();
+      const videosCollection = db.collection('tiktok_videos');
+
+      // Check if video already exists
+      const existingVideo = await videosCollection.findOne({
+        'video.id': videoId,
+      });
+
+      if (existingVideo) {
+        // Update existing record
+        await videosCollection.updateOne(
+          { 'video.id': videoId },
+          {
+            $set: {
+              ...videoInfo,
+              lastUpdatedAt: new Date(),
+            },
+          }
+        );
+        console.log(`[DB] Video information updated for ID: ${videoId}`);
+      } else {
+        // Insert new record
+        const result = await videosCollection.insertOne(videoInfo);
+        console.log(
+          `[DB] Video information inserted with ID: ${result.insertedId}`
+        );
+      }
+    } catch (dbError) {
+      console.error('[DB] Failed to store video information:', dbError);
+      // Continue even if DB operation fails
+    }
+
+    // Update status in the original collection
     await updateDbStatus(dbCollection, tiktokUrl, 'processing', undefined, {
       videoId,
       uniqueId,
       videoDesc,
+      videoInfo, // Include the full video info in the details
     });
 
     // Fetch video (Logika tidak berubah, pastikan User-Agent sama jika diperlukan)
@@ -198,7 +268,9 @@ export async function POST(request: NextRequest) {
       throw new Error('Respons video tidak memiliki body untuk di-stream.');
     }
 
-    await updateDbStatus(dbCollection, tiktokUrl, 'success');
+    await updateDbStatus(dbCollection, tiktokUrl, 'success', undefined, {
+      videoInfo,
+    });
 
     // Streaming response (Logika tidak berubah)
     const headers = new Headers();
