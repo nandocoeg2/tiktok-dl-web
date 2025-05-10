@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { Collection } from 'mongodb';
+import { resolveTikTokUrl, isValidTikTokUrl } from '@/app/utils/url-resolver';
 
 const EXTERNAL_API_URL = 'https://saio-api.vercel.app/service';
 const SUBMITTED_URLS_COLLECTION = 'submitted_urls';
@@ -47,19 +48,15 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     tiktokUrl = body.url;
 
-    if (
-      !tiktokUrl ||
-      typeof tiktokUrl !== 'string' ||
-      !(
-        tiktokUrl.includes('tiktok.com/t/') ||
-        tiktokUrl.includes('tiktok.com/@')
-      )
-    ) {
+    if (!tiktokUrl || !isValidTikTokUrl(tiktokUrl)) {
       return NextResponse.json(
         { error: 'URL TikTok tidak valid.' },
         { status: 400 }
       );
     }
+
+    // Resolve the URL if it's a shortened URL
+    const resolvedUrl = await resolveTikTokUrl(tiktokUrl);
 
     // Koneksi dan Insert DB (Logika tidak berubah)
     try {
@@ -67,6 +64,7 @@ export async function POST(request: NextRequest) {
       dbCollection = db.collection(SUBMITTED_URLS_COLLECTION);
       const docToInsert = {
         url: tiktokUrl,
+        resolvedUrl: resolvedUrl,
         submittedAt: new Date(),
         status: 'pending',
         lastUpdatedAt: new Date(),
@@ -92,7 +90,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(
-      `[Route Handler] Memanggil API eksternal: ${EXTERNAL_API_URL} untuk URL: ${tiktokUrl}`
+      `[Route Handler] Memanggil API eksternal: ${EXTERNAL_API_URL} untuk URL: ${resolvedUrl}`
     );
 
     // --- MODIFIKASI PANGGILAN API EKSTERNAL ---
@@ -103,7 +101,7 @@ export async function POST(request: NextRequest) {
         // --- TAMBAHKAN USER AGENT ---
         'User-Agent': COMMON_USER_AGENT,
       },
-      body: JSON.stringify({ url: tiktokUrl }),
+      body: JSON.stringify({ url: resolvedUrl }),
     });
     // --- AKHIR MODIFIKASI ---
 
@@ -163,6 +161,7 @@ export async function POST(request: NextRequest) {
       dynamicCover: apiData?.data?.content?.video?.dynamicCover,
       duration: apiData?.data?.content?.video?.duration,
       originalUrl: tiktokUrl,
+      resolvedUrl: resolvedUrl,
       createdAt: new Date(),
       lastUpdatedAt: new Date(),
     };

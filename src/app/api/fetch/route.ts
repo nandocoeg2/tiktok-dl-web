@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/app/lib/mongodb';
 import { Collection } from 'mongodb';
+import { resolveTikTokUrl, isValidTikTokUrl } from '@/app/utils/url-resolver';
 
 const EXTERNAL_API_URL = 'https://saio-api.vercel.app/service';
 const VIDEOS_COLLECTION = 'tiktok_videos';
@@ -17,22 +18,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const tiktokUrl = body.url;
 
-    if (
-      !tiktokUrl ||
-      typeof tiktokUrl !== 'string' ||
-      !(
-        tiktokUrl.includes('tiktok.com/t/') ||
-        tiktokUrl.includes('tiktok.com/@')
-      )
-    ) {
+    if (!isValidTikTokUrl(tiktokUrl)) {
       return NextResponse.json(
         { error: 'URL TikTok tidak valid.' },
         { status: 400 }
       );
     }
 
+    // Resolve the URL if it's a shortened URL
+    const resolvedUrl = await resolveTikTokUrl(tiktokUrl);
+
     console.log(
-      `[Fetch Route Handler] Memanggil API eksternal: ${EXTERNAL_API_URL} untuk URL: ${tiktokUrl}`
+      `[Fetch Route Handler] Memanggil API eksternal: ${EXTERNAL_API_URL} untuk URL: ${resolvedUrl}`
     );
 
     const apiResponse = await fetch(EXTERNAL_API_URL, {
@@ -41,7 +38,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
         'User-Agent': COMMON_USER_AGENT,
       },
-      body: JSON.stringify({ url: tiktokUrl }),
+      body: JSON.stringify({ url: resolvedUrl }),
     });
 
     if (!apiResponse.ok) {
@@ -115,6 +112,7 @@ export async function POST(request: NextRequest) {
             $set: {
               ...videoInfo,
               originalUrl: tiktokUrl,
+              resolvedUrl: resolvedUrl,
               lastUpdatedAt: new Date(),
             },
           }
@@ -127,6 +125,7 @@ export async function POST(request: NextRequest) {
         const result = await dbCollection.insertOne({
           ...videoInfo,
           originalUrl: tiktokUrl,
+          resolvedUrl: resolvedUrl,
           createdAt: new Date(),
           lastUpdatedAt: new Date(),
         });
