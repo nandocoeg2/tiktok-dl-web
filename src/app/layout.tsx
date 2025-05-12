@@ -23,7 +23,7 @@ export default function RootLayout({
           <Navigation />
           <main className='pb-8'>{children}</main>
           <footer className='py-4 text-gray-500 text-sm text-center'>
-            Dibuat dengan ❤️
+            Created with ❤️
           </footer>
         </div>
       </body>

@@ -30,13 +30,13 @@ export default function UrlInputForm({
 
   return (
     <Card>
-      <CardHeader title="Step 1: Get Video Information" />
-      
+      <CardHeader title='Step 1: Get Video Information' />
+
       <form onSubmit={handleSubmit}>
         <FormField
-          id="url"
-          label="Masukkan URL Video TikTok:"
-          type="url"
+          id='url'
+          label='Enter TikTok Video URL'
+          type='url'
           required
           error={error}
           inputProps={{
@@ -48,16 +48,16 @@ export default function UrlInputForm({
         />
 
         <Button
-          type="submit"
+          type='submit'
           fullWidth
           isLoading={isLoading}
           disabled={isLoading}
         >
-          Ambil Informasi Video
+          Get Video Information
         </Button>
 
         {status && (
-          <p className="mt-4 text-sm text-center text-green-600">{status}</p>
+          <p className='mt-4 text-sm text-center text-green-600'>{status}</p>
         )}
       </form>
     </Card>
