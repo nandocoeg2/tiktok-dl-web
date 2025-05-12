@@ -172,6 +172,41 @@ export default function Home() {
       a.remove();
       window.URL.revokeObjectURL(downloadUrl);
 
+      // Download the thumbnail image if available
+      if (videoInfo && videoInfo.coverUrl) {
+        try {
+          setDownloadStatus('Downloading thumbnail...');
+
+          // Fetch the thumbnail image
+          const imageResponse = await fetch(videoInfo.coverUrl);
+
+          if (imageResponse.ok) {
+            const imageBlob = await imageResponse.blob();
+            const imageUrl = window.URL.createObjectURL(imageBlob);
+            const imageLink = document.createElement('a');
+            const imageFilename = `tiktok_${videoInfo.author}_${videoInfo.video.id}_thumbnail.jpg`;
+
+            imageLink.href = imageUrl;
+            imageLink.download = imageFilename;
+            document.body.appendChild(imageLink);
+            imageLink.click();
+            imageLink.remove();
+            window.URL.revokeObjectURL(imageUrl);
+
+            console.log(
+              `Downloaded thumbnail for video: ${videoInfo.video.id}`
+            );
+          } else {
+            console.error(
+              `Failed to download thumbnail: ${imageResponse.status}`
+            );
+          }
+        } catch (imageError) {
+          console.error('Error downloading thumbnail:', imageError);
+          // Continue even if thumbnail download fails
+        }
+      }
+
       setDownloadStatus('Download selesai!');
       setDownloadProgress(100);
     } catch (err) {
@@ -472,7 +507,7 @@ export default function Home() {
                             : 'Preparing Download...'}
                         </>
                       ) : (
-                        'Download Video'
+                        'Download Video & Thumbnail'
                       )}
                     </button>
                   </div>

@@ -158,7 +158,7 @@ export default function BulkDownload() {
         // Convert to blob
         const blob = new Blob([allChunks]);
 
-        // Create a download link
+        // Create a download link for video
         const downloadUrl = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         const disposition = downloadResponse.headers.get('content-disposition');
@@ -177,6 +177,48 @@ export default function BulkDownload() {
         a.click();
         a.remove();
         window.URL.revokeObjectURL(downloadUrl);
+
+        // Download the thumbnail image if available
+        if (videoInfo.coverUrl) {
+          try {
+            // Update status to show we're downloading the thumbnail
+            setDownloadItems((prevItems) =>
+              prevItems.map((prevItem) =>
+                prevItem.id === item.id
+                  ? { ...prevItem, status: 'downloading', progress: 100 }
+                  : prevItem
+              )
+            );
+
+            // Fetch the thumbnail image
+            const imageResponse = await fetch(videoInfo.coverUrl);
+
+            if (imageResponse.ok) {
+              const imageBlob = await imageResponse.blob();
+              const imageUrl = window.URL.createObjectURL(imageBlob);
+              const imageLink = document.createElement('a');
+              const imageFilename = `tiktok_${videoInfo.author}_${videoInfo.video.id}_thumbnail.jpg`;
+
+              imageLink.href = imageUrl;
+              imageLink.download = imageFilename;
+              document.body.appendChild(imageLink);
+              imageLink.click();
+              imageLink.remove();
+              window.URL.revokeObjectURL(imageUrl);
+
+              console.log(
+                `Downloaded thumbnail for video: ${videoInfo.video.id}`
+              );
+            } else {
+              console.error(
+                `Failed to download thumbnail: ${imageResponse.status}`
+              );
+            }
+          } catch (imageError) {
+            console.error('Error downloading thumbnail:', imageError);
+            // Continue even if thumbnail download fails
+          }
+        }
 
         // Update status to completed
         setDownloadItems((prevItems) =>
@@ -265,7 +307,9 @@ export default function BulkDownload() {
               disabled={isProcessing}
               className='w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:opacity-50 disabled:cursor-not-allowed'
             >
-              {isProcessing ? 'Processing...' : 'Start Bulk Download'}
+              {isProcessing
+                ? 'Processing...'
+                : 'Start Bulk Download (Videos & Thumbnails)'}
             </button>
 
             {error && <p className='mt-4 text-sm text-red-600'>{error}</p>}
