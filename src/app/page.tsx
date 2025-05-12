@@ -194,8 +194,8 @@ export default function Home() {
   };
 
   return (
-    <div className='flex flex-col items-center justify-center min-h-screen py-2 bg-gray-100'>
-      <main className='w-full max-w-7xl px-4 sm:px-6 lg:px-8'>
+    <div className='flex flex-col items-center justify-center py-2'>
+      <div className='w-full max-w-7xl px-4 sm:px-6 lg:px-8'>
         <h1 className='text-4xl sm:text-5xl font-bold text-gray-800 mb-8 text-center'>
           TikTok Video Downloader
         </h1>
@@ -481,11 +481,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-
-        <footer className='mt-8 text-gray-500 text-sm text-center'>
-          Dibuat dengan ❤️
-        </footer>
-      </main>
+      </div>
     </div>
   );
 }
