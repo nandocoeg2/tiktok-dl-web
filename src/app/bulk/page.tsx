@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
+import BulkDownloadTemplate from '../components/templates/BulkDownloadTemplate';
 
 interface BulkDownloadItem {
   id: string;
@@ -12,7 +13,6 @@ interface BulkDownloadItem {
 }
 
 export default function BulkDownload() {
-  const [urls, setUrls] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [downloadItems, setDownloadItems] = useState<BulkDownloadItem[]>([]);
   const [error, setError] = useState<string>('');
@@ -20,15 +20,8 @@ export default function BulkDownload() {
   const [failedCount, setFailedCount] = useState<number>(0);
 
   // Function to handle form submission
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSubmit = async (urlList: string[]) => {
     setError('');
-
-    // Split the URLs by newline and filter out empty lines
-    const urlList = urls
-      .split('\n')
-      .map((url) => url.trim())
-      .filter((url) => url.length > 0);
 
     if (urlList.length === 0) {
       setError('Please enter at least one TikTok URL');
@@ -256,141 +249,14 @@ export default function BulkDownload() {
     setIsProcessing(false);
   };
 
-  // Function to get status badge color
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-gray-200 text-gray-800';
-      case 'fetching':
-        return 'bg-blue-200 text-blue-800';
-      case 'downloading':
-        return 'bg-yellow-200 text-yellow-800';
-      case 'completed':
-        return 'bg-green-200 text-green-800';
-      case 'error':
-        return 'bg-red-200 text-red-800';
-      default:
-        return 'bg-gray-200 text-gray-800';
-    }
-  };
-
   return (
-    <div className='flex flex-col items-center justify-center py-2'>
-      <div className='w-full max-w-4xl px-4 sm:px-6 lg:px-8'>
-        <h1 className='text-4xl sm:text-5xl font-bold text-gray-800 mb-8 text-center'>
-          Bulk TikTok Downloader
-        </h1>
-
-        <div className='bg-white p-6 rounded-lg shadow-md mb-8'>
-          <h2 className='text-xl font-semibold mb-4 text-gray-800'>
-            Enter TikTok URLs (one per line)
-          </h2>
-
-          <form onSubmit={handleSubmit}>
-            <div className='mb-6'>
-              <textarea
-                value={urls}
-                onChange={(e) => setUrls(e.target.value)}
-                className='bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 h-40'
-                placeholder='https://www.tiktok.com/@user/video/123...'
-                disabled={isProcessing}
-                required
-              />
-              <p className='mt-2 text-sm text-gray-500'>
-                Enter one TikTok URL per line. Supports regular and shortened
-                URLs.
-              </p>
-            </div>
-
-            <button
-              type='submit'
-              disabled={isProcessing}
-              className='w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center disabled:opacity-50 disabled:cursor-not-allowed'
-            >
-              {isProcessing
-                ? 'Processing...'
-                : 'Start Bulk Download (Videos & Thumbnails)'}
-            </button>
-
-            {error && <p className='mt-4 text-sm text-red-600'>{error}</p>}
-          </form>
-        </div>
-
-        {downloadItems.length > 0 && (
-          <div className='bg-white p-6 rounded-lg shadow-md'>
-            <div className='flex justify-between items-center mb-4'>
-              <h2 className='text-xl font-semibold text-gray-800'>
-                Download Queue
-              </h2>
-              <div className='text-sm'>
-                <span className='text-green-600 font-medium'>
-                  {successCount} completed
-                </span>
-                {' • '}
-                <span className='text-red-600 font-medium'>
-                  {failedCount} failed
-                </span>
-                {' • '}
-                <span className='text-gray-600 font-medium'>
-                  {downloadItems.length - successCount - failedCount} pending
-                </span>
-              </div>
-            </div>
-
-            <div className='space-y-4 max-h-96 overflow-y-auto'>
-              {downloadItems.map((item) => (
-                <div key={item.id} className='border rounded-lg p-4'>
-                  <div className='flex justify-between items-start mb-2'>
-                    <div className='truncate max-w-md'>
-                      <a
-                        href={item.url}
-                        target='_blank'
-                        rel='noopener noreferrer'
-                        className='text-blue-600 hover:underline'
-                      >
-                        {item.url}
-                      </a>
-                    </div>
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${getStatusBadgeColor(
-                        item.status
-                      )}`}
-                    >
-                      {item.status}
-                    </span>
-                  </div>
-
-                  {item.videoInfo && (
-                    <div className='flex items-center mt-2 text-sm text-gray-600'>
-                      <span className='font-medium'>
-                        @{item.videoInfo.author}
-                      </span>
-                      {item.videoInfo.nickname && (
-                        <span className='ml-1'>
-                          ({item.videoInfo.nickname})
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {item.status === 'downloading' && (
-                    <div className='w-full bg-gray-200 rounded-full h-2.5 mt-2'>
-                      <div
-                        className='bg-blue-600 h-2.5 rounded-full'
-                        style={{ width: `${item.progress}%` }}
-                      ></div>
-                    </div>
-                  )}
-
-                  {item.error && (
-                    <p className='mt-2 text-sm text-red-600'>{item.error}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+    <BulkDownloadTemplate
+      onSubmit={handleSubmit}
+      isProcessing={isProcessing}
+      error={error}
+      downloadItems={downloadItems}
+      successCount={successCount}
+      failedCount={failedCount}
+    />
   );
 }
